@@ -1,0 +1,878 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
+import { WagmiConfig, createConfig, http } from 'wagmi';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import '@rainbow-me/rainbowkit/styles.css';
+
+const queryClient = new QueryClient();
+
+// Arc Testnet konfigürasyonu
+const arcTestnet = {
+  id: 5042002,
+  name: "Arc Testnet",
+  network: "arc-testnet",
+  nativeCurrency: {
+    decimals: 18,
+    name: "ARC",
+    symbol: "ARC",
+  },
+  rpcUrls: {
+    public: { http: ["https://rpc.testnet.arc.network/"] },
+    default: { http: ["https://rpc.testnet.arc.network/"] },
+  },
+  blockExplorers: {
+    default: { name: "Arc Explorer", url: "https://testnet.arcscan.app" },
+  },
+  testnet: true,
+};
+
+// Token contract adresleri
+const TOKENS = {
+  USDC: {
+    address: "0x3600000000000000000000000000000000000000",
+    symbol: "USDC",
+    decimals: 6,
+    name: "USD Coin"
+  },
+  EURC: {
+    address: "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a",
+    symbol: "EURC", 
+    decimals: 6,
+    name: "Euro Coin"
+  }
+};
+
+// ERC20 ABI - transfer fonksiyonu için
+const ERC20_ABI = [
+  {
+    name: 'transfer',
+    type: 'function',
+    inputs: [
+      { name: 'to', type: 'address' },
+      { name: 'value', type: 'uint256' }
+    ],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'nonpayable'
+  },
+  {
+    name: 'balanceOf',
+    type: 'function',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view'
+  },
+  {
+    name: 'decimals',
+    type: 'function',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint8' }],
+    stateMutability: 'view'
+  }
+];
+
+const wagmiConfig = createConfig({
+  chains: [arcTestnet],
+  transports: { [arcTestnet.id]: http() },
+});
+
+// Global CSS için component
+function GlobalStyles() {
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      /* Tüm beyaz boşlukları kaldır ve mobile optimize et */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow-x: hidden;
+        font-family: system-ui, -apple-system, sans-serif;
+      }
+      
+      body {
+        background: linear-gradient(135deg, #020815 0%, #041A2C 50%, #063450 100%);
+      }
+
+      /* Mobile için responsive font sizes */
+      @media (max-width: 768px) {
+        html {
+          font-size: 14px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        html {
+          font-size: 12px;
+        }
+      }
+
+      /* RainbowKit düzeltmeleri */
+      .rk-connect-button {
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        background: #6366F1 !important;
+        border: none !important;
+        color: white !important;
+      }
+
+      .rk-modal-container {
+        max-width: 400px !important;
+        margin: 0 auto !important;
+        background: #111A29 !important;
+        border: 1px solid #2A3346 !important;
+        border-radius: 20px !important;
+      }
+
+      .rk-wallet-option {
+        background: #021223 !important;
+        border: 1px solid #2A3346 !important;
+        border-radius: 12px !important;
+        margin-bottom: 8px !important;
+      }
+
+      .rk-wallet-option:hover {
+        background: #063450 !important;
+        border-color: #00E4FF !important;
+        transform: translateY(-2px) !important;
+      }
+
+      .rk-wallet-icon {
+        width: 32px !important;
+        height: 32px !important;
+        border-radius: 8px !important;
+      }
+
+      .rk-wallet-name {
+        color: #00E6FF !important;
+        font-weight: 600 !important;
+      }
+
+      .rk-account-button {
+        background: #6366F1 !important;
+        border: none !important;
+        border-radius: 12px !important;
+      }
+
+      @media (max-width: 768px) {
+        .rk-modal-container {
+          width: 95% !important;
+          max-width: 95% !important;
+          margin: 20px auto !important;
+        }
+        
+        .rk-connect-button {
+          padding: 12px 16px !important;
+          font-size: 14px !important;
+        }
+      }
+
+      .rk-modal-backdrop {
+        background: rgba(0, 0, 0, 0.8) !important;
+      }
+
+      /* Faucet damla animasyonu */
+      @keyframes drip {
+        0%, 20% {
+          transform: translateY(0);
+          opacity: 0;
+        }
+        30% {
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(12px);
+          opacity: 0;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
+  return null;
+}
+
+// Client-side only balance component
+function BalanceDisplay({ isConnected, balance, selectedToken }) {
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  const formatBalance = (balance) => {
+    if (!balance) return "0";
+    const token = TOKENS[selectedToken];
+    return (Number(balance) / 10 ** token.decimals).toFixed(4);
+  };
+
+  if (!isClient) {
+    return <div style={{marginTop: '0.5rem', color: '#00E6FF', fontSize: '0.9rem'}}>Loading...</div>;
+  }
+
+  if (!isConnected) {
+    return null;
+  }
+
+  return (
+    <div style={{marginTop: '0.5rem', color: '#00E6FF', fontSize: '0.9rem'}}>
+      Balance: {formatBalance(balance)} {selectedToken}
+    </div>
+  );
+}
+
+// Token Transfer Component - Mobile responsive
+function TokenTransfer() {
+  const { address, isConnected } = useAccount();
+  const [to, setTo] = useState("");
+  const [amount, setAmount] = useState("");
+  const [selectedToken, setSelectedToken] = useState("USDC");
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  const { data: hash, writeContract, isPending } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({ hash });
+
+  // Balance okuma - hydration için enabled kontrolü
+  const { data: balance } = useReadContract({
+    address: TOKENS[selectedToken].address,
+    abi: ERC20_ABI,
+    functionName: 'balanceOf',
+    args: [address],
+    query: { 
+      enabled: !!address && !!selectedToken 
+    }
+  });
+
+  const handleTransfer = async () => {
+    if (!to || !amount || !isConnected) return;
+
+    const token = TOKENS[selectedToken];
+    const amountInWei = BigInt(parseFloat(amount) * 10 ** token.decimals);
+
+    writeContract({
+      address: token.address,
+      abi: ERC20_ABI,
+      functionName: 'transfer',
+      args: [to, amountInWei],
+    });
+  };
+
+  // Buton stilleri - premium design
+  const getButtonStyles = () => {
+    const isDisabled = !isConnected || isPending || !to || !amount;
+    
+    return {
+      width: '100%',
+      background: isDisabled ? '#2A3346' : '#6366F1',
+      color: '#FFFFFF',
+      fontWeight: 'bold',
+      padding: '1rem 1.5rem',
+      borderRadius: '12px',
+      border: 'none',
+      cursor: isDisabled ? 'not-allowed' : 'pointer',
+      fontSize: '1.125rem',
+      opacity: isDisabled ? 0.6 : 1,
+      boxShadow: isDisabled ? 'none' : '0 4px 15px rgba(99, 102, 241, 0.3)',
+      transition: 'all 0.3s ease'
+    };
+  };
+
+  if (!isClient) {
+    return (
+      <div style={{
+        background: '#111A29',
+        border: '1px solid #2A3346',
+        borderRadius: '20px',
+        padding: '1.5rem',
+        maxWidth: '500px',
+        margin: '0 auto 2rem auto',
+        width: '90%'
+      }}>
+        <div style={{color: '#00E6FF', textAlign: 'center'}}>Loading...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      background: '#111A29',
+      border: '1px solid #2A3346',
+      borderRadius: '20px',
+      padding: '1.5rem',
+      maxWidth: '500px',
+      margin: '0 auto 2rem auto',
+      width: '90%',
+      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)'
+    }}>
+      <h2 style={{
+        fontSize: 'clamp(1.5rem, 4vw, 2rem)', 
+        color: '#FFFFFF',
+        marginBottom: '1.5rem', 
+        textAlign: 'center',
+        fontWeight: 'bold'
+      }}>
+        Send Tokens
+      </h2>
+      
+      {/* Token Seçimi - Mobile responsive */}
+      <div style={{marginBottom: '1.5rem', textAlign: 'center'}}>
+        <label style={{color: '#FFFFFF', marginBottom: '0.5rem', display: 'block'}}>Select Token</label>
+        <div style={{
+          display: 'flex', 
+          gap: '0.5rem', 
+          justifyContent: 'center',
+          flexWrap: 'wrap'
+        }}>
+          {Object.keys(TOKENS).map(token => (
+            <button
+              key={token}
+              onClick={() => setSelectedToken(token)}
+              style={{
+                background: selectedToken === token ? '#6366F1' : '#021223',
+                border: selectedToken === token ? 'none' : '1px solid #00E4FF',
+                borderRadius: '10px',
+                padding: '0.6rem 1.2rem',
+                color: selectedToken === token ? '#FFFFFF' : '#00E6FF',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                boxShadow: selectedToken === token 
+                  ? '0 4px 15px rgba(99, 102, 241, 0.4)' 
+                  : '0 0 10px rgba(0, 228, 255, 0.3)',
+                fontSize: '0.9rem',
+                minWidth: '80px'
+              }}
+              onMouseOver={(e) => {
+                if (selectedToken !== token) {
+                  e.target.style.boxShadow = '0 0 15px rgba(0, 228, 255, 0.5)';
+                  e.target.style.transform = 'translateY(-2px)';
+                }
+              }}
+              onMouseOut={(e) => {
+                if (selectedToken !== token) {
+                  e.target.style.boxShadow = '0 0 10px rgba(0, 228, 255, 0.3)';
+                  e.target.style.transform = 'translateY(0)';
+                }
+              }}
+            >
+              {token}
+            </button>
+          ))}
+        </div>
+        
+        {/* Balance Display - Client-side only */}
+        <BalanceDisplay 
+          isConnected={isConnected} 
+          balance={balance} 
+          selectedToken={selectedToken} 
+        />
+      </div>
+
+      <div style={{display: 'flex', flexDirection: 'column', gap: '1.2rem'}}>
+        <div>
+          <label style={{display: 'block', textAlign: 'left', color: '#FFFFFF', marginBottom: '0.5rem', fontSize: '0.9rem'}}>
+            Recipient wallet address (0x...)
+          </label>
+          <input
+            type="text"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            placeholder="0x..."
+            style={{
+              width: '100%',
+              padding: '0.875rem',
+              borderRadius: '12px',
+              background: '#020815',
+              border: '1px solid #2A3346',
+              color: '#FFFFFF',
+              transition: 'all 0.3s ease',
+              fontSize: '0.9rem'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#00E4FF';
+              e.target.style.boxShadow = '0 0 0 3px rgba(0, 228, 255, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#2A3346';
+              e.target.style.boxShadow = 'none';
+            }}
+          />
+        </div>
+        
+        <div>
+          <label style={{display: 'block', textAlign: 'left', color: '#FFFFFF', marginBottom: '0.5rem', fontSize: '0.9rem'}}>
+            Amount
+          </label>
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0.0"
+            step="0.001"
+            style={{
+              width: '100%',
+              padding: '0.875rem',
+              borderRadius: '12px',
+              background: '#020815',
+              border: '1px solid #2A3346',
+              color: '#FFFFFF',
+              transition: 'all 0.3s ease',
+              fontSize: '0.9rem'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#00E4FF';
+              e.target.style.boxShadow = '0 0 0 3px rgba(0, 228, 255, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#2A3346';
+              e.target.style.boxShadow = 'none';
+            }}
+          />
+        </div>
+
+        <button 
+          onClick={handleTransfer}
+          disabled={!isConnected || isPending || !to || !amount}
+          style={getButtonStyles()}
+          onMouseOver={(e) => {
+            if (!isConnected || isPending || !to || !amount) return;
+            e.target.style.transform = 'translateY(-2px)';
+            e.target.style.boxShadow = '0 6px 20px rgba(99, 102, 241, 0.4)';
+          }}
+          onMouseOut={(e) => {
+            if (!isConnected || isPending || !to || !amount) return;
+            e.target.style.transform = 'translateY(0)';
+            e.target.style.boxShadow = '0 4px 15px rgba(99, 102, 241, 0.3)';
+          }}
+        >
+          {isPending ? 'Confirming...' : isConfirming ? 'Processing...' : `Send ${selectedToken}`}
+        </button>
+
+        {hash && (
+          <div style={{
+            color: '#00E6FF', 
+            fontSize: '0.8rem', 
+            textAlign: 'center',
+            background: '#021223',
+            padding: '0.75rem',
+            borderRadius: '8px',
+            border: '1px solid #00E4FF',
+            boxShadow: '0 0 10px rgba(0, 228, 255, 0.2)',
+            wordBreak: 'break-all'
+          }}>
+            Transaction Hash: {hash.slice(0, 10)}...{hash.slice(-8)}
+          </div>
+        )}
+
+        {isConfirmed && (
+          <div style={{
+            color: '#00E6FF', 
+            fontSize: '0.8rem', 
+            textAlign: 'center',
+            background: '#021223',
+            padding: '0.75rem',
+            borderRadius: '8px',
+            border: '1px solid #00E4FF',
+            boxShadow: '0 0 15px rgba(0, 228, 255, 0.3)'
+          }}>
+            ✅ Transfer Successful!
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Premium Social Links component - DÜZELTİLMİŞ LİNKLER ve YENİ MUSLUK
+function SocialLinks({ isMobile = false }) {
+  const socialLinks = [
+    { 
+      name: 'Discord', 
+      url: 'https://discord.gg/buildonarc', // DÜZELTİLDİ
+      showOnMobile: false 
+    },
+    { 
+      name: 'X', 
+      url: 'https://x.com/arc',
+      showOnMobile: false 
+    },
+    { 
+      name: 'Explorer', 
+      url: 'https://testnet.arcscan.app', // DÜZELTİLDİ
+      showOnMobile: false 
+    },
+    { 
+      name: 'Faucet', 
+      url: 'https://faucet.circle.com/', // DÜZELTİLDİ
+      showOnMobile: true 
+    }
+  ];
+
+  const filteredLinks = isMobile 
+    ? socialLinks.filter(item => item.showOnMobile)
+    : socialLinks;
+
+  return (
+    <div style={{
+      display: isMobile ? 'flex' : 'flex',
+      justifyContent: 'center',
+      gap: 'clamp(0.5rem, 2vw, 1rem)',
+      flex: '2 1 auto',
+    }}>
+      {filteredLinks.map((item) => (
+        <a
+          key={item.name}
+          href={item.url}
+          target="_blank"
+          style={{
+            background: item.name === 'Faucet' ? '#1a237e' : '#021223', // Faucet için farklı arkaplan
+            border: item.name === 'Faucet' ? '1px solid #536dfe' : '1px solid #00E4FF',
+            borderRadius: '12px',
+            padding: 'clamp(0.6rem, 2vw, 0.8rem) clamp(1rem, 2vw, 1.5rem)',
+            color: item.name === 'Faucet' ? '#82b1ff' : '#00E6FF',
+            fontWeight: '600',
+            cursor: 'pointer',
+            textDecoration: 'none',
+            transition: 'all 0.3s ease',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            boxShadow: item.name === 'Faucet' ? '0 0 15px rgba(83, 109, 254, 0.3)' : '0 0 15px rgba(0, 228, 255, 0.2)',
+            fontSize: 'clamp(0.8rem, 2vw, 0.9rem)',
+            whiteSpace: 'nowrap',
+            position: 'relative',
+            overflow: 'hidden'
+          }}
+          onMouseOver={(e) => {
+            e.target.style.background = item.name === 'Faucet' ? '#283593' : '#063450';
+            e.target.style.transform = 'translateY(-2px)';
+            e.target.style.boxShadow = item.name === 'Faucet' 
+              ? '0 0 20px rgba(83, 109, 254, 0.5)' 
+              : '0 0 20px rgba(0, 228, 255, 0.4)';
+            e.target.style.borderColor = item.name === 'Faucet' ? '#82b1ff' : '#00F0FF';
+          }}
+          onMouseOut={(e) => {
+            e.target.style.background = item.name === 'Faucet' ? '#1a237e' : '#021223';
+            e.target.style.transform = 'translateY(0)';
+            e.target.style.boxShadow = item.name === 'Faucet' 
+              ? '0 0 15px rgba(83, 109, 254, 0.3)' 
+              : '0 0 15px rgba(0, 228, 255, 0.2)';
+            e.target.style.borderColor = item.name === 'Faucet' ? '#536dfe' : '#00E4FF';
+          }}
+        >
+          {/* YENİ ve DAHA İYİ MUSLUK İKONU - Sadece Faucet için */}
+          {item.name === 'Faucet' && (
+            <div style={{
+              position: 'relative',
+              width: '20px',
+              height: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              {/* Modern musluk tasarımı */}
+              <div style={{
+                position: 'relative',
+                width: '16px',
+                height: '16px'
+              }}>
+                {/* Musluk gövdesi */}
+                <div style={{
+                  position: 'absolute',
+                  top: '2px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '8px',
+                  height: '10px',
+                  background: 'linear-gradient(135deg, #82b1ff, #536dfe)',
+                  borderRadius: '4px 4px 2px 2px',
+                  boxShadow: '0 0 6px rgba(130, 177, 255, 0.6)'
+                }}></div>
+                {/* Musluk başı */}
+                <div style={{
+                  position: 'absolute',
+                  top: '0',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '6px',
+                  height: '3px',
+                  background: '#bbdefb',
+                  borderRadius: '3px 3px 0 0'
+                }}></div>
+                {/* Su çıkışı */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: '0',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: '4px',
+                  height: '2px',
+                  background: '#40c4ff',
+                  borderRadius: '0 0 2px 2px'
+                }}></div>
+              </div>
+              
+              {/* Su damlası - Animasyonlu */}
+              <div style={{
+                position: 'absolute',
+                bottom: '-8px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: '3px',
+                height: '3px',
+                background: '#40c4ff',
+                borderRadius: '50%',
+                boxShadow: '0 0 6px #40c4ff',
+                animation: 'drip 2s infinite',
+                opacity: 0
+              }}></div>
+            </div>
+          )}
+          <span style={{
+            background: item.name === 'Faucet' 
+              ? 'linear-gradient(45deg, #82b1ff, #536dfe)' 
+              : 'linear-gradient(45deg, #00E6FF, #6366F1)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            fontWeight: '700',
+            fontSize: 'clamp(0.8rem, 2vw, 0.9rem)'
+          }}>
+            {item.name}
+          </span>
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function App() {
+  const [windowWidth, setWindowWidth] = useState(0);
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+    setWindowWidth(window.innerWidth);
+    
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isMobile = windowWidth <= 768;
+
+  if (!isClient) {
+    return <div style={{
+      background: 'linear-gradient(135deg, #020815 0%, #041A2C 50%, #063450 100%)', 
+      color: 'white', 
+      minHeight: '100vh', 
+      width: '100vw',
+      margin: 0,
+      padding: 0,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    }}>
+      <div style={{
+        background: '#111A29',
+        border: '1px solid #2A3346',
+        borderRadius: '20px',
+        padding: '2rem'
+      }}>
+        <div style={{
+          fontSize: 'clamp(1.2rem, 4vw, 1.5rem)',
+          color: '#00F0FF',
+          fontWeight: 'bold',
+          textAlign: 'center'
+        }}>
+          ArcPay MVP Loading...
+        </div>
+      </div>
+    </div>;
+  }
+
+  return (
+    <>
+      <GlobalStyles />
+      <WagmiConfig config={wagmiConfig}>
+        <QueryClientProvider client={queryClient}>
+          <RainbowKitProvider 
+            chains={[arcTestnet]} 
+            theme={darkTheme({
+              accentColor: '#6366F1',
+              accentColorForeground: 'white',
+              borderRadius: 'large',
+              fontStack: 'system',
+              overlayBlur: 'small',
+            })}
+          >
+            {/* MOBILE RESPONSIVE NAVBAR */}
+            <nav style={{
+              display: 'flex',
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: 'clamp(0.75rem, 3vw, 1rem) clamp(1rem, 4vw, 2rem)',
+              background: '#020815',
+              borderBottom: '1px solid #2A3346',
+              boxShadow: '0 4px 30px rgba(0, 0, 0, 0.5)',
+              width: '100%',
+              margin: 0,
+              flexWrap: 'wrap',
+              gap: '1rem'
+            }}>
+              {/* SOL: BÜYÜK LOGO + İsim - Mobile responsive */}
+              <div style={{
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 'clamp(0.5rem, 2vw, 1rem)',
+                flex: '1 1 auto',
+                minWidth: '200px'
+              }}>
+                <img 
+                  src="/arc-logo.png" 
+                  alt="Arc Network" 
+                  style={{
+                    width: 'clamp(60px, 8vw, 80px)',
+                    height: 'clamp(45px, 6vw, 60px)',
+                    borderRadius: '10px',
+                    border: '2px solid #00E4FF',
+                    boxShadow: '0 0 15px rgba(0, 240, 255, 0.3)',
+                    objectFit: 'contain'
+                  }}
+                />
+                <span style={{
+                  fontSize: 'clamp(1.2rem, 4vw, 1.75rem)',
+                  fontWeight: 'bold',
+                  color: '#00F0FF',
+                  textShadow: '0 0 20px rgba(0, 240, 255, 0.5)',
+                  whiteSpace: 'nowrap'
+                }}>
+                  ArcPay MVP
+                </span>
+              </div>
+
+              {/* ORTA: Social Links - Desktop ve Mobile ayrı */}
+              <SocialLinks isMobile={false} /> {/* Desktop */}
+              {isMobile && <SocialLinks isMobile={true} />}  {/* Mobile */}
+
+              {/* SAĞ: Connect Wallet - RainbowKit butonu */}
+              <div style={{
+                display: 'flex', 
+                justifyContent: 'flex-end',
+                flex: '1 1 auto',
+                minWidth: '140px'
+              }}>
+                <ConnectButton 
+                  showBalance={false}
+                  label="Connect Wallet"
+                />
+              </div>
+            </nav>
+
+            {/* MOBILE RESPONSIVE ANA İÇERİK */}
+            <main style={{
+              minHeight: 'calc(100vh - 80px)',
+              background: 'linear-gradient(135deg, #020815 0%, #041A2C 50%, #063450 100%)',
+              color: 'white',
+              padding: 'clamp(1rem, 3vw, 2rem)',
+              textAlign: 'center',
+              width: '100%',
+              margin: 0
+            }}>
+              <div>
+                <h1 style={{
+                  fontSize: 'clamp(1.8rem, 6vw, 3.5rem)', 
+                  marginBottom: 'clamp(0.5rem, 2vw, 1rem)',
+                  color: '#FFFFFF',
+                  fontWeight: 'bold',
+                  lineHeight: '1.2'
+                }}>
+                  The Fastest Way to Send <span style={{color: '#00E6FF'}}>USDC&EURO</span> on Arc
+                </h1>
+                
+                <p style={{
+                  fontSize: 'clamp(0.9rem, 3vw, 1.25rem)', 
+                  marginBottom: 'clamp(1.5rem, 4vw, 3rem)', 
+                  color: '#FFFFFF',
+                  background: '#111A29',
+                  padding: 'clamp(0.75rem, 2vw, 1rem) clamp(1rem, 3vw, 2rem)',
+                  borderRadius: '15px',
+                  border: '1px solid #2A3346',
+                  display: 'inline-block',
+                  maxWidth: '90%'
+                }}>
+                  Built on Arc Network — Programmable, Scalable, Low-Fee Financial Rails.
+                </p>
+
+                {/* TOKEN TRANSFER COMPONENT */}
+                <TokenTransfer />
+
+                {/* FOOTER */}
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  color: '#8C99A9',
+                  fontSize: 'clamp(0.7rem, 2vw, 0.875rem)',
+                  background: '#111A29',
+                  padding: 'clamp(1rem, 2vw, 1.5rem)',
+                  borderRadius: '15px',
+                  border: '1px solid #2A3346',
+                  marginTop: 'clamp(1rem, 3vw, 2rem)',
+                  width: '90%',
+                  maxWidth: '500px',
+                  marginLeft: 'auto',
+                  marginRight: 'auto'
+                }}>
+                  <div>© 2025 ArcPay MVP — Built on Arc Network</div>
+                  <div style={{display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#00E6FF'}}>
+                    <a 
+                      href="https://x.com/mustafa29460849" 
+                      target="_blank" 
+                      style={{
+                        color: '#00E6FF', 
+                        textDecoration: 'none',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                      onMouseOver={(e) => {
+                        e.target.style.textDecoration = 'underline';
+                      }}
+                      onMouseOut={(e) => {
+                        e.target.style.textDecoration = 'none';
+                      }}
+                    >
+                      Powered By VENUS
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </RainbowKitProvider>
+        </QueryClientProvider>
+      </WagmiConfig>
+    </>
+  );
+}
+
+export default App;
