@@ -1,18 +1,19 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src *; frame-src *; img-src *; font-src 'self' data:;"
-          }
-        ],
-      },
-    ];
+  // Turbopack config ekleyelim
+  turbopack: {},
+  // Webpack config ile bazı modülleri ignore et
+  webpack: (config, { isServer }) => {
+    // Bazı optional dependency'leri ignore et
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+    };
+    
+    return config;
   },
-};
+}
 
-export default nextConfig;
+module.exports = nextConfig

@@ -25,7 +25,7 @@ const arcTestnet = {
     default: { http: ["https://rpc.testnet.arc.network/"] },
   },
   blockExplorers: {
-    default: { name: "Arc Explorer", url: "https://testnet.arcscan.app" },
+    default: { name: "Arc Explorer", url: "https://testnet.explorer.arc.network" },
   },
   testnet: true,
 };
@@ -72,7 +72,7 @@ const ERC20_ABI = [
     outputs: [{ name: '', type: 'uint8' }],
     stateMutability: 'view'
   }
-];
+] as const;
 
 const wagmiConfig = createConfig({
   chains: [arcTestnet],
@@ -116,85 +116,6 @@ function GlobalStyles() {
           font-size: 12px;
         }
       }
-
-      /* RainbowKit düzeltmeleri */
-      .rk-connect-button {
-        border-radius: 12px !important;
-        font-weight: 600 !important;
-        background: #6366F1 !important;
-        border: none !important;
-        color: white !important;
-      }
-
-      .rk-modal-container {
-        max-width: 400px !important;
-        margin: 0 auto !important;
-        background: #111A29 !important;
-        border: 1px solid #2A3346 !important;
-        border-radius: 20px !important;
-      }
-
-      .rk-wallet-option {
-        background: #021223 !important;
-        border: 1px solid #2A3346 !important;
-        border-radius: 12px !important;
-        margin-bottom: 8px !important;
-      }
-
-      .rk-wallet-option:hover {
-        background: #063450 !important;
-        border-color: #00E4FF !important;
-        transform: translateY(-2px) !important;
-      }
-
-      .rk-wallet-icon {
-        width: 32px !important;
-        height: 32px !important;
-        border-radius: 8px !important;
-      }
-
-      .rk-wallet-name {
-        color: #00E6FF !important;
-        font-weight: 600 !important;
-      }
-
-      .rk-account-button {
-        background: #6366F1 !important;
-        border: none !important;
-        border-radius: 12px !important;
-      }
-
-      @media (max-width: 768px) {
-        .rk-modal-container {
-          width: 95% !important;
-          max-width: 95% !important;
-          margin: 20px auto !important;
-        }
-        
-        .rk-connect-button {
-          padding: 12px 16px !important;
-          font-size: 14px !important;
-        }
-      }
-
-      .rk-modal-backdrop {
-        background: rgba(0, 0, 0, 0.8) !important;
-      }
-
-      /* Faucet damla animasyonu */
-      @keyframes drip {
-        0%, 20% {
-          transform: translateY(0);
-          opacity: 0;
-        }
-        30% {
-          opacity: 1;
-        }
-        100% {
-          transform: translateY(12px);
-          opacity: 0;
-        }
-      }
     `;
     document.head.appendChild(style);
     
@@ -207,16 +128,20 @@ function GlobalStyles() {
 }
 
 // Client-side only balance component
-function BalanceDisplay({ isConnected, balance, selectedToken }) {
+function BalanceDisplay({ isConnected, balance, selectedToken }: { 
+  isConnected: boolean; 
+  balance: bigint | undefined; 
+  selectedToken: string; 
+}) {
   const [isClient, setIsClient] = useState(false);
   
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  const formatBalance = (balance) => {
+  const formatBalance = (balance: bigint | undefined) => {
     if (!balance) return "0";
-    const token = TOKENS[selectedToken];
+    const token = TOKENS[selectedToken as keyof typeof TOKENS];
     return (Number(balance) / 10 ** token.decimals).toFixed(4);
   };
 
@@ -252,10 +177,10 @@ function TokenTransfer() {
 
   // Balance okuma - hydration için enabled kontrolü
   const { data: balance } = useReadContract({
-    address: TOKENS[selectedToken].address,
+    address: TOKENS[selectedToken as keyof typeof TOKENS].address,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
-    args: [address],
+    args: [address!],
     query: { 
       enabled: !!address && !!selectedToken 
     }
@@ -264,7 +189,7 @@ function TokenTransfer() {
   const handleTransfer = async () => {
     if (!to || !amount || !isConnected) return;
 
-    const token = TOKENS[selectedToken];
+    const token = TOKENS[selectedToken as keyof typeof TOKENS];
     const amountInWei = BigInt(parseFloat(amount) * 10 ** token.decimals);
 
     writeContract({
@@ -292,7 +217,7 @@ function TokenTransfer() {
       opacity: isDisabled ? 0.6 : 1,
       boxShadow: isDisabled ? 'none' : '0 4px 15px rgba(99, 102, 241, 0.3)',
       transition: 'all 0.3s ease'
-    };
+    } as const;
   };
 
   if (!isClient) {
@@ -362,14 +287,14 @@ function TokenTransfer() {
               }}
               onMouseOver={(e) => {
                 if (selectedToken !== token) {
-                  e.target.style.boxShadow = '0 0 15px rgba(0, 228, 255, 0.5)';
-                  e.target.style.transform = 'translateY(-2px)';
+                  (e.target as HTMLButtonElement).style.boxShadow = '0 0 15px rgba(0, 228, 255, 0.5)';
+                  (e.target as HTMLButtonElement).style.transform = 'translateY(-2px)';
                 }
               }}
               onMouseOut={(e) => {
                 if (selectedToken !== token) {
-                  e.target.style.boxShadow = '0 0 10px rgba(0, 228, 255, 0.3)';
-                  e.target.style.transform = 'translateY(0)';
+                  (e.target as HTMLButtonElement).style.boxShadow = '0 0 10px rgba(0, 228, 255, 0.3)';
+                  (e.target as HTMLButtonElement).style.transform = 'translateY(0)';
                 }
               }}
             >
@@ -407,12 +332,12 @@ function TokenTransfer() {
               fontSize: '0.9rem'
             }}
             onFocus={(e) => {
-              e.target.style.borderColor = '#00E4FF';
-              e.target.style.boxShadow = '0 0 0 3px rgba(0, 228, 255, 0.1)';
+              (e.target as HTMLInputElement).style.borderColor = '#00E4FF';
+              (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(0, 228, 255, 0.1)';
             }}
             onBlur={(e) => {
-              e.target.style.borderColor = '#2A3346';
-              e.target.style.boxShadow = 'none';
+              (e.target as HTMLInputElement).style.borderColor = '#2A3346';
+              (e.target as HTMLInputElement).style.boxShadow = 'none';
             }}
           />
         </div>
@@ -438,12 +363,12 @@ function TokenTransfer() {
               fontSize: '0.9rem'
             }}
             onFocus={(e) => {
-              e.target.style.borderColor = '#00E4FF';
-              e.target.style.boxShadow = '0 0 0 3px rgba(0, 228, 255, 0.1)';
+              (e.target as HTMLInputElement).style.borderColor = '#00E4FF';
+              (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(0, 228, 255, 0.1)';
             }}
             onBlur={(e) => {
-              e.target.style.borderColor = '#2A3346';
-              e.target.style.boxShadow = 'none';
+              (e.target as HTMLInputElement).style.borderColor = '#2A3346';
+              (e.target as HTMLInputElement).style.boxShadow = 'none';
             }}
           />
         </div>
@@ -454,13 +379,13 @@ function TokenTransfer() {
           style={getButtonStyles()}
           onMouseOver={(e) => {
             if (!isConnected || isPending || !to || !amount) return;
-            e.target.style.transform = 'translateY(-2px)';
-            e.target.style.boxShadow = '0 6px 20px rgba(99, 102, 241, 0.4)';
+            (e.target as HTMLButtonElement).style.transform = 'translateY(-2px)';
+            (e.target as HTMLButtonElement).style.boxShadow = '0 6px 20px rgba(99, 102, 241, 0.4)';
           }}
           onMouseOut={(e) => {
             if (!isConnected || isPending || !to || !amount) return;
-            e.target.style.transform = 'translateY(0)';
-            e.target.style.boxShadow = '0 4px 15px rgba(99, 102, 241, 0.3)';
+            (e.target as HTMLButtonElement).style.transform = 'translateY(0)';
+            (e.target as HTMLButtonElement).style.boxShadow = '0 4px 15px rgba(99, 102, 241, 0.3)';
           }}
         >
           {isPending ? 'Confirming...' : isConfirming ? 'Processing...' : `Send ${selectedToken}`}
@@ -501,183 +426,12 @@ function TokenTransfer() {
   );
 }
 
-// Premium Social Links component - DÜZELTİLMİŞ LİNKLER ve YENİ MUSLUK
-function SocialLinks({ isMobile = false }) {
-  const socialLinks = [
-    { 
-      name: 'Discord', 
-      url: 'https://discord.gg/buildonarc', // DÜZELTİLDİ
-      showOnMobile: false 
-    },
-    { 
-      name: 'X', 
-      url: 'https://x.com/arc',
-      showOnMobile: false 
-    },
-    { 
-      name: 'Explorer', 
-      url: 'https://testnet.arcscan.app', // DÜZELTİLDİ
-      showOnMobile: false 
-    },
-    { 
-      name: 'Faucet', 
-      url: 'https://faucet.circle.com/', // DÜZELTİLDİ
-      showOnMobile: true 
-    }
-  ];
-
-  const filteredLinks = isMobile 
-    ? socialLinks.filter(item => item.showOnMobile)
-    : socialLinks;
-
-  return (
-    <div style={{
-      display: isMobile ? 'flex' : 'flex',
-      justifyContent: 'center',
-      gap: 'clamp(0.5rem, 2vw, 1rem)',
-      flex: '2 1 auto',
-    }}>
-      {filteredLinks.map((item) => (
-        <a
-          key={item.name}
-          href={item.url}
-          target="_blank"
-          style={{
-            background: item.name === 'Faucet' ? '#1a237e' : '#021223', // Faucet için farklı arkaplan
-            border: item.name === 'Faucet' ? '1px solid #536dfe' : '1px solid #00E4FF',
-            borderRadius: '12px',
-            padding: 'clamp(0.6rem, 2vw, 0.8rem) clamp(1rem, 2vw, 1.5rem)',
-            color: item.name === 'Faucet' ? '#82b1ff' : '#00E6FF',
-            fontWeight: '600',
-            cursor: 'pointer',
-            textDecoration: 'none',
-            transition: 'all 0.3s ease',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            boxShadow: item.name === 'Faucet' ? '0 0 15px rgba(83, 109, 254, 0.3)' : '0 0 15px rgba(0, 228, 255, 0.2)',
-            fontSize: 'clamp(0.8rem, 2vw, 0.9rem)',
-            whiteSpace: 'nowrap',
-            position: 'relative',
-            overflow: 'hidden'
-          }}
-          onMouseOver={(e) => {
-            e.target.style.background = item.name === 'Faucet' ? '#283593' : '#063450';
-            e.target.style.transform = 'translateY(-2px)';
-            e.target.style.boxShadow = item.name === 'Faucet' 
-              ? '0 0 20px rgba(83, 109, 254, 0.5)' 
-              : '0 0 20px rgba(0, 228, 255, 0.4)';
-            e.target.style.borderColor = item.name === 'Faucet' ? '#82b1ff' : '#00F0FF';
-          }}
-          onMouseOut={(e) => {
-            e.target.style.background = item.name === 'Faucet' ? '#1a237e' : '#021223';
-            e.target.style.transform = 'translateY(0)';
-            e.target.style.boxShadow = item.name === 'Faucet' 
-              ? '0 0 15px rgba(83, 109, 254, 0.3)' 
-              : '0 0 15px rgba(0, 228, 255, 0.2)';
-            e.target.style.borderColor = item.name === 'Faucet' ? '#536dfe' : '#00E4FF';
-          }}
-        >
-          {/* YENİ ve DAHA İYİ MUSLUK İKONU - Sadece Faucet için */}
-          {item.name === 'Faucet' && (
-            <div style={{
-              position: 'relative',
-              width: '20px',
-              height: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              {/* Modern musluk tasarımı */}
-              <div style={{
-                position: 'relative',
-                width: '16px',
-                height: '16px'
-              }}>
-                {/* Musluk gövdesi */}
-                <div style={{
-                  position: 'absolute',
-                  top: '2px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: '8px',
-                  height: '10px',
-                  background: 'linear-gradient(135deg, #82b1ff, #536dfe)',
-                  borderRadius: '4px 4px 2px 2px',
-                  boxShadow: '0 0 6px rgba(130, 177, 255, 0.6)'
-                }}></div>
-                {/* Musluk başı */}
-                <div style={{
-                  position: 'absolute',
-                  top: '0',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: '6px',
-                  height: '3px',
-                  background: '#bbdefb',
-                  borderRadius: '3px 3px 0 0'
-                }}></div>
-                {/* Su çıkışı */}
-                <div style={{
-                  position: 'absolute',
-                  bottom: '0',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  width: '4px',
-                  height: '2px',
-                  background: '#40c4ff',
-                  borderRadius: '0 0 2px 2px'
-                }}></div>
-              </div>
-              
-              {/* Su damlası - Animasyonlu */}
-              <div style={{
-                position: 'absolute',
-                bottom: '-8px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                width: '3px',
-                height: '3px',
-                background: '#40c4ff',
-                borderRadius: '50%',
-                boxShadow: '0 0 6px #40c4ff',
-                animation: 'drip 2s infinite',
-                opacity: 0
-              }}></div>
-            </div>
-          )}
-          <span style={{
-            background: item.name === 'Faucet' 
-              ? 'linear-gradient(45deg, #82b1ff, #536dfe)' 
-              : 'linear-gradient(45deg, #00E6FF, #6366F1)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            fontWeight: '700',
-            fontSize: 'clamp(0.8rem, 2vw, 0.9rem)'
-          }}>
-            {item.name}
-          </span>
-        </a>
-      ))}
-    </div>
-  );
-}
-
 function App() {
-  const [windowWidth, setWindowWidth] = useState(0);
   const [isClient, setIsClient] = useState(false);
   
   useEffect(() => {
     setIsClient(true);
-    setWindowWidth(window.innerWidth);
-    
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    
-    return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  const isMobile = windowWidth <= 768;
 
   if (!isClient) {
     return <div style={{
@@ -714,16 +468,7 @@ function App() {
       <GlobalStyles />
       <WagmiConfig config={wagmiConfig}>
         <QueryClientProvider client={queryClient}>
-          <RainbowKitProvider 
-            chains={[arcTestnet]} 
-            theme={darkTheme({
-              accentColor: '#6366F1',
-              accentColorForeground: 'white',
-              borderRadius: 'large',
-              fontStack: 'system',
-              overlayBlur: 'small',
-            })}
-          >
+          <RainbowKitProvider chains={[arcTestnet]} theme={darkTheme()}>
             {/* MOBILE RESPONSIVE NAVBAR */}
             <nav style={{
               display: 'flex',
@@ -751,7 +496,7 @@ function App() {
                   src="/arc-logo.png" 
                   alt="Arc Network" 
                   style={{
-                    width: 'clamp(60px, 8vw, 80px)',
+                    width: 'clamp(60px, 8vw, 80px)', // MOBILE BÜYÜK LOGO
                     height: 'clamp(45px, 6vw, 60px)',
                     borderRadius: '10px',
                     border: '2px solid #00E4FF',
@@ -770,21 +515,70 @@ function App() {
                 </span>
               </div>
 
-              {/* ORTA: Social Links - Desktop ve Mobile ayrı */}
-              <SocialLinks isMobile={false} /> {/* Desktop */}
-              {isMobile && <SocialLinks isMobile={true} />}  {/* Mobile */}
+              {/* ORTA: Mobile responsive Social Links - Tablet/Mobile'da gizle */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                gap: 'clamp(0.25rem, 1vw, 0.75rem)',
+                flex: '2 1 auto',
+                '@media (max-width: 768px)': {
+                  display: 'none' // Mobile'da social links gizli
+                }
+              }}>
+                {[
+                  { name: 'Discord', url: 'https://discord.gg/arc', emoji: '💬' },
+                  { name: 'X', url: 'https://x.com/arc', emoji: '🐦' },
+                  { name: 'Explorer', url: 'https://explorer.arc.network', emoji: '🔍' },
+                  { name: 'Faucet', url: 'https://faucet.arc.network', emoji: '⚡' }
+                ].map((item) => (
+                  <a
+                    key={item.name}
+                    href={item.url}
+                    target="_blank"
+                    style={{
+                      background: '#021223',
+                      border: '1px solid #00E4FF',
+                      borderRadius: '8px',
+                      padding: 'clamp(0.5rem, 2vw, 0.75rem) clamp(0.75rem, 2vw, 1.25rem)',
+                      color: '#00E6FF',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      textDecoration: 'none',
+                      transition: 'all 0.3s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 0 10px rgba(0, 228, 255, 0.2)',
+                      fontSize: 'clamp(0.7rem, 2vw, 0.9rem)',
+                      whiteSpace: 'nowrap'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.background = '#063450';
+                      e.currentTarget.style.transform = 'translateY(-2px)';
+                      e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 228, 255, 0.4)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = '#021223';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 0 10px rgba(0, 228, 255, 0.2)';
+                    }}
+                  >
+                    <span style={{fontSize: 'clamp(0.8rem, 2vw, 1rem)'}}>{item.emoji}</span>
+                    <span style={{'@media (max-width: 1024px)': { display: 'none' }}}>
+                      {item.name}
+                    </span>
+                  </a>
+                ))}
+              </div>
 
-              {/* SAĞ: Connect Wallet - RainbowKit butonu */}
+              {/* SAĞ: Connect Wallet - Mobile için tam genişlik */}
               <div style={{
                 display: 'flex', 
                 justifyContent: 'flex-end',
                 flex: '1 1 auto',
                 minWidth: '140px'
               }}>
-                <ConnectButton 
-                  showBalance={false}
-                  label="Connect Wallet"
-                />
+                <ConnectButton />
               </div>
             </nav>
 
@@ -856,10 +650,10 @@ function App() {
                         cursor: 'pointer'
                       }}
                       onMouseOver={(e) => {
-                        e.target.style.textDecoration = 'underline';
+                        e.currentTarget.style.textDecoration = 'underline';
                       }}
                       onMouseOut={(e) => {
-                        e.target.style.textDecoration = 'none';
+                        e.currentTarget.style.textDecoration = 'none';
                       }}
                     >
                       Powered By VENUS
