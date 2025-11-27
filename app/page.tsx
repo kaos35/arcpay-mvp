@@ -72,7 +72,7 @@ const ERC20_ABI = [
     outputs: [{ name: '', type: 'uint8' }],
     stateMutability: 'view'
   }
-] as const;
+];
 
 const wagmiConfig = createConfig({
   chains: [arcTestnet],
@@ -109,11 +109,20 @@ function GlobalStyles() {
         html {
           font-size: 14px;
         }
+        .social-links-container {
+          display: none !important;
+        }
       }
 
       @media (max-width: 480px) {
         html {
           font-size: 12px;
+        }
+      }
+
+      @media (max-width: 1024px) {
+        .social-link-text {
+          display: none !important;
         }
       }
     `;
@@ -128,20 +137,16 @@ function GlobalStyles() {
 }
 
 // Client-side only balance component
-function BalanceDisplay({ isConnected, balance, selectedToken }: { 
-  isConnected: boolean; 
-  balance: bigint | undefined; 
-  selectedToken: string; 
-}) {
+function BalanceDisplay({ isConnected, balance, selectedToken }) {
   const [isClient, setIsClient] = useState(false);
   
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  const formatBalance = (balance: bigint | undefined) => {
+  const formatBalance = (balance) => {
     if (!balance) return "0";
-    const token = TOKENS[selectedToken as keyof typeof TOKENS];
+    const token = TOKENS[selectedToken];
     return (Number(balance) / 10 ** token.decimals).toFixed(4);
   };
 
@@ -177,10 +182,10 @@ function TokenTransfer() {
 
   // Balance okuma - hydration için enabled kontrolü
   const { data: balance } = useReadContract({
-    address: TOKENS[selectedToken as keyof typeof TOKENS].address,
+    address: TOKENS[selectedToken].address,
     abi: ERC20_ABI,
     functionName: 'balanceOf',
-    args: [address!],
+    args: [address],
     query: { 
       enabled: !!address && !!selectedToken 
     }
@@ -189,7 +194,7 @@ function TokenTransfer() {
   const handleTransfer = async () => {
     if (!to || !amount || !isConnected) return;
 
-    const token = TOKENS[selectedToken as keyof typeof TOKENS];
+    const token = TOKENS[selectedToken];
     const amountInWei = BigInt(parseFloat(amount) * 10 ** token.decimals);
 
     writeContract({
@@ -217,7 +222,7 @@ function TokenTransfer() {
       opacity: isDisabled ? 0.6 : 1,
       boxShadow: isDisabled ? 'none' : '0 4px 15px rgba(99, 102, 241, 0.3)',
       transition: 'all 0.3s ease'
-    } as const;
+    };
   };
 
   if (!isClient) {
@@ -287,14 +292,14 @@ function TokenTransfer() {
               }}
               onMouseOver={(e) => {
                 if (selectedToken !== token) {
-                  (e.target as HTMLButtonElement).style.boxShadow = '0 0 15px rgba(0, 228, 255, 0.5)';
-                  (e.target as HTMLButtonElement).style.transform = 'translateY(-2px)';
+                  e.target.style.boxShadow = '0 0 15px rgba(0, 228, 255, 0.5)';
+                  e.target.style.transform = 'translateY(-2px)';
                 }
               }}
               onMouseOut={(e) => {
                 if (selectedToken !== token) {
-                  (e.target as HTMLButtonElement).style.boxShadow = '0 0 10px rgba(0, 228, 255, 0.3)';
-                  (e.target as HTMLButtonElement).style.transform = 'translateY(0)';
+                  e.target.style.boxShadow = '0 0 10px rgba(0, 228, 255, 0.3)';
+                  e.target.style.transform = 'translateY(0)';
                 }
               }}
             >
@@ -332,12 +337,12 @@ function TokenTransfer() {
               fontSize: '0.9rem'
             }}
             onFocus={(e) => {
-              (e.target as HTMLInputElement).style.borderColor = '#00E4FF';
-              (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(0, 228, 255, 0.1)';
+              e.target.style.borderColor = '#00E4FF';
+              e.target.style.boxShadow = '0 0 0 3px rgba(0, 228, 255, 0.1)';
             }}
             onBlur={(e) => {
-              (e.target as HTMLInputElement).style.borderColor = '#2A3346';
-              (e.target as HTMLInputElement).style.boxShadow = 'none';
+              e.target.style.borderColor = '#2A3346';
+              e.target.style.boxShadow = 'none';
             }}
           />
         </div>
@@ -363,12 +368,12 @@ function TokenTransfer() {
               fontSize: '0.9rem'
             }}
             onFocus={(e) => {
-              (e.target as HTMLInputElement).style.borderColor = '#00E4FF';
-              (e.target as HTMLInputElement).style.boxShadow = '0 0 0 3px rgba(0, 228, 255, 0.1)';
+              e.target.style.borderColor = '#00E4FF';
+              e.target.style.boxShadow = '0 0 0 3px rgba(0, 228, 255, 0.1)';
             }}
             onBlur={(e) => {
-              (e.target as HTMLInputElement).style.borderColor = '#2A3346';
-              (e.target as HTMLInputElement).style.boxShadow = 'none';
+              e.target.style.borderColor = '#2A3346';
+              e.target.style.boxShadow = 'none';
             }}
           />
         </div>
@@ -379,13 +384,13 @@ function TokenTransfer() {
           style={getButtonStyles()}
           onMouseOver={(e) => {
             if (!isConnected || isPending || !to || !amount) return;
-            (e.target as HTMLButtonElement).style.transform = 'translateY(-2px)';
-            (e.target as HTMLButtonElement).style.boxShadow = '0 6px 20px rgba(99, 102, 241, 0.4)';
+            e.target.style.transform = 'translateY(-2px)';
+            e.target.style.boxShadow = '0 6px 20px rgba(99, 102, 241, 0.4)';
           }}
           onMouseOut={(e) => {
             if (!isConnected || isPending || !to || !amount) return;
-            (e.target as HTMLButtonElement).style.transform = 'translateY(0)';
-            (e.target as HTMLButtonElement).style.boxShadow = '0 4px 15px rgba(99, 102, 241, 0.3)';
+            e.target.style.transform = 'translateY(0)';
+            e.target.style.boxShadow = '0 4px 15px rgba(99, 102, 241, 0.3)';
           }}
         >
           {isPending ? 'Confirming...' : isConfirming ? 'Processing...' : `Send ${selectedToken}`}
@@ -516,15 +521,15 @@ function App() {
               </div>
 
               {/* ORTA: Mobile responsive Social Links - Tablet/Mobile'da gizle */}
-              <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                gap: 'clamp(0.25rem, 1vw, 0.75rem)',
-                flex: '2 1 auto',
-                '@media (max-width: 768px)': {
-                  display: 'none' // Mobile'da social links gizli
-                }
-              }}>
+              <div 
+                className="social-links-container"
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  gap: 'clamp(0.25rem, 1vw, 0.75rem)',
+                  flex: '2 1 auto',
+                }}
+              >
                 {[
                   { name: 'Discord', url: 'https://discord.gg/arc', emoji: '💬' },
                   { name: 'X', url: 'https://x.com/arc', emoji: '🐦' },
@@ -553,18 +558,18 @@ function App() {
                       whiteSpace: 'nowrap'
                     }}
                     onMouseOver={(e) => {
-                      e.currentTarget.style.background = '#063450';
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 0 20px rgba(0, 228, 255, 0.4)';
+                      e.target.style.background = '#063450';
+                      e.target.style.transform = 'translateY(-2px)';
+                      e.target.style.boxShadow = '0 0 20px rgba(0, 228, 255, 0.4)';
                     }}
                     onMouseOut={(e) => {
-                      e.currentTarget.style.background = '#021223';
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 0 10px rgba(0, 228, 255, 0.2)';
+                      e.target.style.background = '#021223';
+                      e.target.style.transform = 'translateY(0)';
+                      e.target.style.boxShadow = '0 0 10px rgba(0, 228, 255, 0.2)';
                     }}
                   >
                     <span style={{fontSize: 'clamp(0.8rem, 2vw, 1rem)'}}>{item.emoji}</span>
-                    <span style={{'@media (max-width: 1024px)': { display: 'none' }}}>
+                    <span className="social-link-text">
                       {item.name}
                     </span>
                   </a>
@@ -650,10 +655,10 @@ function App() {
                         cursor: 'pointer'
                       }}
                       onMouseOver={(e) => {
-                        e.currentTarget.style.textDecoration = 'underline';
+                        e.target.style.textDecoration = 'underline';
                       }}
                       onMouseOut={(e) => {
-                        e.currentTarget.style.textDecoration = 'none';
+                        e.target.style.textDecoration = 'none';
                       }}
                     >
                       Powered By VENUS
