@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit';
-import { WagmiConfig, createConfig, http } from 'wagmi';
+import { WagmiConfig, createConfig } from 'wagmi';
+import { http } from 'viem';
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@rainbow-me/rainbowkit/styles.css';
@@ -72,11 +73,13 @@ const ERC20_ABI = [
     outputs: [{ name: '', type: 'uint8' }],
     stateMutability: 'view'
   }
-];
+] as const;
 
 const wagmiConfig = createConfig({
   chains: [arcTestnet],
-  transports: { [arcTestnet.id]: http() },
+  transports: {
+    [arcTestnet.id]: http(),
+  },
 });
 
 // Global CSS için component
